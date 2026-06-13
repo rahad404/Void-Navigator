@@ -628,3 +628,70 @@ class VoidNavigatorApp:
 
         # Update visual button toggles
         self._build_ui_buttons()
+
+    # update physics and simulation
+    def update(self):
+        # 1. Update background star twilight
+        for star in self.stars_bg:
+            star["phase"] += star["twinkle_speed"]
+
+        # 2. Increment radar sweep scan line angle
+        self.radar_angle = (self.radar_angle + 0.015) % (2 * math.pi)
+
+        # 3. Handle spaceship transit animation along path
+        if self.is_animating and self.active_path:
+            target_node = self.active_path[self.anim_index + 1]
+            tx, ty = target_node
+
+            dx = tx - self.ship_x
+            dy = ty - self.ship_y
+            dist = math.sqrt(dx*dx + dy*dy)
+
+            # Look up immediate hazard cost at current position
+            current_grid_cell = (int(round(self.ship_x)), int(round(self.ship_y)))
+            node = self.grid_model.get_node(*current_grid_cell)
+            hazard_factor = node.hazard_weight if node else 0.0
+
+            # Dynamic flight adjustment: Ship slows down in high hazard areas to maneuver safely!
+            adjusted_speed = max(0.04, self.ship_speed_mult / (1.0 + hazard_factor * 0.4))
+
+            # Deduct fuel based on velocity and distance
+            self.fuel_level = max(0.0, self.fuel_level - (adjusted_speed * 0.5))
+
+            if dist <= adjusted_speed:
+                # Arrived at node cell, hop to next
+                self.ship_x = float(tx)
+                self.ship_y = float(ty)
+                self.anim_index += 1
+
+                # Check for scan nearby
+                self.scan_for_proximate_objects()
+
+                if self.anim_index >= len(self.active_path) - 1:
+                    # Space ship arrived at final destination
+                    self.is_animating = False
+                    self.ship_x = float(self.end_node[0])
+                    self.ship_y = float(self.end_node[1])
+            else:
+                # Interpolate towards next node position
+                ux = dx / dist
+                uy = dy / dist
+                self.ship_x += ux * adjusted_speed
+                self.ship_y += uy * adjusted_speed
+                # Update angle to face heading
+                self.ship_angle = math.degrees(math.atan2(-uy, ux)) - 90
+
+                # Emit particle trails behind the thruster
+                px = self.grid_margin_left + self.ship_x * self.cell_size + self.cell_size//2
+                py = self.grid_margin_top + self.ship_y * self.cell_size + self.cell_size//2
+                self.particles.emit(px, py, ux, uy)
+        else:
+            # When stationary, scan for objects near the static start node
+            self.scan_for_proximate_objects()
+
+        # Update ship particles
+        self.particles.update()
+
+        # 4. Increment sidebar hologram rotating wireframe
+        if self.active_scanned_object:
+            self.hologram_rotation_angle = (self.hologram_rotation_angle + 0.02) % (2 * math.pi)
