@@ -831,3 +831,47 @@ class VoidNavigatorApp:
             # Draw nodes along path as small neon dots
             for pt in points:
                 pygame.draw.circle(self.screen, COLOR_TEXT_BRIGHT, pt, 2)
+
+    # Draws detailed asteroids or deep space objects on the active coordinates."""
+    def _draw_obstacles(self):
+        time_tick = pygame.time.get_ticks()
+
+        if self.current_stage == 1:
+            # Render custom planetary stations first (passable)
+            for p in self.stage_1_planets:
+                pcx = self.grid_margin_left + p["x"] * self.cell_size + self.cell_size // 2
+                pcy = self.grid_margin_top + p["y"] * self.cell_size + self.cell_size // 2
+
+                # Check if it's Saturn to draw rings
+                has_rings = p.get("rings", False)
+                p_r = max(4, int(self.cell_size * (p["radius"] / 19.0)))
+
+                if has_rings:
+                    # Draw Saturn golden rings background layer
+                    ring_surf = pygame.Surface((p_r*5, p_r*2), pygame.SRCALPHA)
+                    pygame.draw.ellipse(ring_surf, (185, 165, 115, 120), (0, p_r - p_r//3, p_r*5, p_r//2))
+                    self.screen.blit(ring_surf, (pcx - p_r*2.5, pcy - p_r))
+
+                CosmicObjectRenderer.draw_planet(self.screen, pcx, pcy, p_r, p["color"], p["atmos"], p["name"])
+
+            # Render downloaded Asteroids (impassable obstacles)
+            for ast in self.asteroids_dataset:
+                x, y = ast["x"], ast["y"]
+                cx = self.grid_margin_left + x * self.cell_size + self.cell_size // 2
+                cy = self.grid_margin_top + y * self.cell_size + self.cell_size // 2
+                radius = max(3, int(self.cell_size * 0.22 + min(self.cell_size * 0.35, ast["diameter_km"] * self.cell_size * 0.15)))
+                CosmicObjectRenderer.draw_asteroid(self.screen, cx, cy, radius, ast)
+        else:
+            # Stage 2: Deep space (Stars, Galaxies, Nebulae) - all scale to fit cells
+            for obj in self.deep_space_dataset:
+                x, y = obj["x"], obj["y"]
+                cx = self.grid_margin_left + x * self.cell_size + self.cell_size // 2
+                cy = self.grid_margin_top + y * self.cell_size + self.cell_size // 2
+
+                o_type = obj["type"]
+                if o_type == "Star":
+                    CosmicObjectRenderer.draw_star(self.screen, cx, cy, obj.get("spectral_class", "G"), self.cell_size)
+                elif o_type == "Galaxy":
+                    CosmicObjectRenderer.draw_galaxy(self.screen, cx, cy, obj, time_tick, self.cell_size)
+                elif o_type == "Nebula":
+                    CosmicObjectRenderer.draw_nebula(self.screen, cx, cy, obj, time_tick, self.cell_size)
