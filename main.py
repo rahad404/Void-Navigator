@@ -712,3 +712,33 @@ class VoidNavigatorApp:
 
         if closest:
             self.active_scanned_object = closest
+
+    # render engine
+    def draw(self):
+        self.screen.fill(COLOR_BG)
+
+        # 1. Render starfield background (uses width/height of window dynamically)
+        for star in self.stars_bg:
+            if star["x"] < self.window_width and star["y"] < self.window_height:
+                brightness = int(120 + 80 * math.sin(star["phase"]))
+                pygame.draw.circle(self.screen, (brightness, brightness, brightness + 20), (star["x"], star["y"]), star["size"])
+
+        # 2. Render Radar Grid View
+        self._draw_radar_grid()
+
+        # 3. Draw Pathfinding routes
+        self._draw_pathfinding_routes()
+
+        # 4. Render Starfield/Asteroid/Planetary obstacles
+        self._draw_obstacles()
+
+        # 5. Render Start/End Celestial Stations overlays
+        self._draw_stations()
+
+        # 6. Render Spaceship
+        self._draw_spaceship()
+
+        # 7. Draw HUD Panel Sidebar Controls
+        self._draw_hud_sidebar()
+
+        pygame.display.flip()
