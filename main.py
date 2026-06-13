@@ -875,3 +875,23 @@ class VoidNavigatorApp:
                     CosmicObjectRenderer.draw_galaxy(self.screen, cx, cy, obj, time_tick, self.cell_size)
                 elif o_type == "Nebula":
                     CosmicObjectRenderer.draw_nebula(self.screen, cx, cy, obj, time_tick, self.cell_size)
+
+    # Renders pulsing target circular frames around active selection coordinates."""
+    def _draw_stations(self):
+        # Draw pulsing Start tracker (Green)
+        sx, sy = self.start_node
+        scx = self.grid_margin_left + sx * self.cell_size + self.cell_size // 2
+        scy = self.grid_margin_top + sy * self.cell_size + self.cell_size // 2
+        p_radius = max(6, int(self.cell_size * 0.55))
+
+        # High-tech pulsing target ring
+        t_pulse = 1.0 + 0.12 * math.sin(pygame.time.get_ticks() / 200.0)
+        pygame.draw.circle(self.screen, COLOR_ACCENT_GREEN, (scx, scy), int(p_radius * 1.6 * t_pulse), 1)
+        pygame.draw.circle(self.screen, COLOR_ACCENT_GREEN, (scx, scy), 2)  # Tiny center dot
+
+        # Draw pulsing Target tracker (Magenta)
+        tx, ty = self.end_node
+        tcx = self.grid_margin_left + tx * self.cell_size + self.cell_size // 2
+        tcy = self.grid_margin_top + ty * self.cell_size + self.cell_size // 2
+        pygame.draw.circle(self.screen, COLOR_ACCENT_MAGENTA, (tcx, tcy), int(p_radius * 1.6 * t_pulse), 1)
+        pygame.draw.circle(self.screen, COLOR_ACCENT_MAGENTA, (tcx, tcy), 2)
