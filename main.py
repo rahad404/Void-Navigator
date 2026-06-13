@@ -410,3 +410,41 @@ class VoidNavigatorApp:
 
         # Apply hazard buffer costs surrounding obstacles
         self.grid_model.apply_hazard_margins(margin_radius=1, cost_increment=5.0)
+
+
+    # Constructs layout buttons on the sidebar panel dynamically based on sidebar dimensions
+    def _build_ui_buttons(self):
+        sb_x = self.sidebar_x
+        sb_w = self.sidebar_width
+
+        # Heights of button rows
+        r1_y = 90
+        r2_y = 125
+        r3_y = 160
+        r4_y = 195  # Mouse Click Mode and Heuristic Toggle row
+
+        # Two-column layout in the sidebar
+        col_w = (sb_w - 40) // 2
+        col1_x = sb_x + 15
+        col2_x = sb_x + 15 + col_w + 10
+
+        self.buttons = [
+            Button((col1_x, r1_y, col_w, 30), "STAGE 01: NEO BELT", "stage_1", COLOR_ACCENT_CYAN, toggle_state=(self.current_stage == 1)),
+            Button((col2_x, r1_y, col_w, 30), "STAGE 02: DEEP SPACE", "stage_2", COLOR_ACCENT_CYAN, toggle_state=(self.current_stage == 2)),
+
+            Button((col1_x, r2_y, col_w, 30), "CALCULATE PATH", "calc_path", COLOR_ACCENT_GREEN),
+            Button((col2_x, r2_y, col_w, 30), "AUTOPILOT: LAUNCH", "launch", COLOR_ACCENT_CYAN),
+
+            Button((col1_x, r3_y, col_w, 30), "REFETCH DATA", "refresh", COLOR_ACCENT_AMBER),
+            Button((col2_x, r3_y, col_w, 30), "TOGGLE SEARCH TREE", "toggle_tree", COLOR_ACCENT_CYAN, toggle_state=self.show_search_tree),
+
+            Button((col1_x, r4_y, col_w, 30), f"MOUSE: SET {self.mouse_mode.upper()}", "click_mode", COLOR_ACCENT_GREEN if self.mouse_mode == "start" else COLOR_ACCENT_MAGENTA),
+            Button((col2_x, r4_y, col_w, 30), f"HEURISTIC: {self.heuristic_mode.upper()}", "heuristic", COLOR_ACCENT_CYAN)
+        ]
+
+        # Station selection arrows placed dynamically (Row 5 at y = 235, Row 6 at y = 265)
+        self.buttons.append(Button((sb_x + 15, 235, 30, 25), "<", "start_prev", COLOR_ACCENT_CYAN))
+        self.buttons.append(Button((sb_x + sb_w - 45, 235, 30, 25), ">", "start_next", COLOR_ACCENT_CYAN))
+
+        self.buttons.append(Button((sb_x + 15, 265, 30, 25), "<", "target_prev", COLOR_ACCENT_CYAN))
+        self.buttons.append(Button((sb_x + sb_w - 45, 265, 30, 25), ">", "target_next", COLOR_ACCENT_CYAN))
