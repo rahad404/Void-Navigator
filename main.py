@@ -363,3 +363,27 @@ class VoidNavigatorApp:
         # Fetch initial asteroid data
         self.reload_asteroids()
         self.calculate_path()
+
+    # update layout dimention
+    def update_layout_dimensions(self):
+        """Calculates sizing variables dynamically based on window width and height."""
+        # Enforce minimum size boundary constraints to avoid UI collapse
+        self.window_width = max(800, self.window_width)
+        self.window_height = max(550, self.window_height)
+
+        # Calculate dynamic grid bounding square area
+        # Reserve 380px for the right side cockpit dashboard, and a 40px vertical margin buffer
+        grid_area_size = min(self.window_width - 380, self.window_height - 40)
+        self.cell_size = max(8, grid_area_size // GRID_SIZE)
+        self.grid_display_size = self.cell_size * GRID_SIZE
+
+        # Centering the grid vertically
+        self.grid_margin_left = 20
+        self.grid_margin_top = (self.window_height - self.grid_display_size) // 2
+
+        # Sidebar coordinates
+        self.sidebar_x = self.grid_margin_left + self.grid_display_size + 20
+        self.sidebar_width = self.window_width - self.sidebar_x
+
+        # Refresh button layouts
+        self._build_ui_buttons()
