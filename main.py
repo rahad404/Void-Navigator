@@ -448,3 +448,29 @@ class VoidNavigatorApp:
 
         self.buttons.append(Button((sb_x + 15, 265, 30, 25), "<", "target_prev", COLOR_ACCENT_CYAN))
         self.buttons.append(Button((sb_x + sb_w - 45, 265, 30, 25), ">", "target_next", COLOR_ACCENT_CYAN))
+
+    # Returns the name of the celestial body at a coordinate, or formatted coordinate string if custom."""
+    def _get_body_name_at_pos(self, pos):
+        if self.current_stage == 1:
+            for p in self.stage_1_planets:
+                if (p["x"], p["y"]) == pos:
+                    return p["name"]
+        else:
+            for p in self.deep_space_dataset:
+                if (p["x"], p["y"]) == pos:
+                    return p["name"]
+        return f"Sector {pos[0]},{pos[1]}"
+
+    # Returns a list of dictionaries with name, x, y coordinates for selection in the active stage."""
+    def _get_selectable_bodies(self):
+        if self.current_stage == 1:
+            return [{"name": p["name"], "pos": (p["x"], p["y"])} for p in self.stage_1_planets]
+        else:
+            return [{"name": p["name"], "pos": (p["x"], p["y"])} for p in self.deep_space_dataset]
+
+    # Runs the A* pathfinding search between start_node and end_node."""
+    def calculate_path(self):
+        self.active_path, self.open_list_vis, self.closed_list_vis = self.grid_model.search(
+            self.start_node, self.end_node, heuristic_mode=self.heuristic_mode
+        )
+        self.reset_ship_animation()
