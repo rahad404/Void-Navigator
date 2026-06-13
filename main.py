@@ -491,3 +491,60 @@ class VoidNavigatorApp:
             self.ship_x = float(self.active_path[0][0])
             self.ship_y = float(self.active_path[0][1])
             self.fuel_level = 100.0
+
+    # event handler and inputs
+    def handle_events(self):
+        mouse_pos = pygame.mouse.get_pos()
+
+        # Feed hover positions to buttons
+        for btn in self.buttons:
+            btn.check_hover(mouse_pos)
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+
+            elif event.type == pygame.VIDEORESIZE:
+                # Handle window resizing dynamically
+                self.window_width, self.window_height = event.w, event.h
+                self.screen = pygame.display.set_mode((self.window_width, self.window_height), pygame.RESIZABLE)
+                self.update_layout_dimensions()
+                # Recalculate path to center properly
+                self.calculate_path()
+
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                # Left Click
+                if event.button == 1:
+                    # Check button clicks
+                    for btn in self.buttons:
+                        if btn.is_hovered:
+                            self._trigger_button_action(btn.action_id)
+                            return
+
+                    # Check grid coordinate interaction
+                    grid_coord = self._get_grid_coord_from_mouse(mouse_pos)
+                    if grid_coord:
+                        node = self.grid_model.get_node(*grid_coord)
+                        # Treat None node (empty cell never added to grid) as passable
+                        is_obstacle = node.is_obstacle if node else False
+                        if not is_obstacle:
+                            if self.mouse_mode == "start":
+                                self.start_node = grid_coord
+                            else:
+                                self.end_node = grid_coord
+                            self.calculate_path()
+                        else:
+                            # Node exists and is an obstacle — show scanner details
+                            if node and node.celestial_obj:
+                                self.active_scanned_object = node.celestial_obj
+
+                # Right Click (Legacy direct Target setting shortcut)
+                elif event.button == 3:
+                    grid_coord = self._get_grid_coord_from_mouse(mouse_pos)
+                    if grid_coord:
+                        node = self.grid_model.get_node(*grid_coord)
+                        is_obstacle = node.is_obstacle if node else False
+                        if not is_obstacle:
+                            self.end_node = grid_coord
+                            self.calculate_path()
