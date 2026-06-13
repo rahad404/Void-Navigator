@@ -742,3 +742,57 @@ class VoidNavigatorApp:
         self._draw_hud_sidebar()
 
         pygame.display.flip()
+
+    # Draws the main space radar screen with glowing grid cells and sweeping radar line."""
+    def _draw_radar_grid(self):
+        # Draw base grid box border
+        radar_rect = pygame.Rect(self.grid_margin_left, self.grid_margin_top, self.grid_display_size, self.grid_display_size)
+        pygame.draw.rect(self.screen, (10, 15, 25), radar_rect)
+
+        # Calculate dynamic radar sweep line vector
+        radar_center_x = self.grid_margin_left + self.grid_display_size // 2
+        radar_center_y = self.grid_margin_top + self.grid_display_size // 2
+        sweep_x = radar_center_x + (self.grid_display_size * 0.7) * math.cos(self.radar_angle)
+        sweep_y = radar_center_y + (self.grid_display_size * 0.7) * math.sin(self.radar_angle)
+
+        # Render grid lines
+        for i in range(GRID_SIZE + 1):
+            coord = i * self.cell_size
+            # Vertical lines
+            vx1, vy1 = self.grid_margin_left + coord, self.grid_margin_top
+            vx2, vy2 = self.grid_margin_left + coord, self.grid_margin_top + self.grid_display_size
+            # Horizontal lines
+            hx1, hy1 = self.grid_margin_left, self.grid_margin_top + coord
+            hx2, hy2 = self.grid_margin_left + self.grid_display_size, self.grid_margin_top + coord
+
+            # Draw standard grid lines
+            pygame.draw.line(self.screen, COLOR_GRID, (vx1, vy1), (vx2, vy2), 1)
+            pygame.draw.line(self.screen, COLOR_GRID, (hx1, hy1), (hx2, hy2), 1)
+
+        # Draw hazard weight fields as faint amber outlines on the cells
+        for (x, y), node in self.grid_model.grid.items():
+            if node.hazard_weight > 0 and not node.is_obstacle:
+                intensity = min(150, int(node.hazard_weight * 20))
+                cell_rect = pygame.Rect(
+                    self.grid_margin_left + x * self.cell_size + 1,
+                    self.grid_margin_top + y * self.cell_size + 1,
+                    self.cell_size - 1, self.cell_size - 1
+                )
+                # Outer alert border
+                pygame.draw.rect(self.screen, (COLOR_ACCENT_AMBER[0], COLOR_ACCENT_AMBER[1], 0, intensity), cell_rect, 1)
+
+        # Draw sweeping radar line (translucent overlay)
+        radar_sweep_surf = pygame.Surface((self.grid_display_size, self.grid_display_size), pygame.SRCALPHA)
+        # Radar sweep color fades in a trailing wedge
+        num_spokes = 15
+        for j in range(num_spokes):
+            angle = self.radar_angle - (j * 0.015)
+            alpha = int(70 * (1.0 - j / float(num_spokes)))
+            sx = self.grid_display_size // 2 + (self.grid_display_size * 0.7) * math.cos(angle)
+            sy = self.grid_display_size // 2 + (self.grid_display_size * 0.7) * math.sin(angle)
+            pygame.draw.line(radar_sweep_surf, (0, 255, 120, alpha), (self.grid_display_size // 2, self.grid_display_size // 2), (sx, sy), 2)
+
+        self.screen.blit(radar_sweep_surf, (self.grid_margin_left, self.grid_margin_top))
+
+        # Main grid border box
+        pygame.draw.rect(self.screen, COLOR_HUD_BORDER, radar_rect, 2)
