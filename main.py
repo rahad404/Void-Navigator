@@ -695,3 +695,20 @@ class VoidNavigatorApp:
         # 4. Increment sidebar hologram rotating wireframe
         if self.active_scanned_object:
             self.hologram_rotation_angle = (self.hologram_rotation_angle + 0.02) % (2 * math.pi)
+
+    # Scans grid surrounding the spaceship. Selects the closest celestial body
+    def scan_for_proximate_objects(self):
+        ship_pos = (int(round(self.ship_x)), int(round(self.ship_y)))
+        closest = None
+        min_dist = 6.0  # Detection scanning radius of 6 grid spaces
+
+        dataset = self.asteroids_dataset if self.current_stage == 1 else self.deep_space_dataset
+        for obj in dataset:
+            ox, oy = obj["x"], obj["y"]
+            d = math.sqrt((ox - ship_pos[0])**2 + (oy - ship_pos[1])**2)
+            if d < min_dist:
+                min_dist = d
+                closest = obj
+
+        if closest:
+            self.active_scanned_object = closest
