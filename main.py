@@ -895,3 +895,30 @@ class VoidNavigatorApp:
         tcy = self.grid_margin_top + ty * self.cell_size + self.cell_size // 2
         pygame.draw.circle(self.screen, COLOR_ACCENT_MAGENTA, (tcx, tcy), int(p_radius * 1.6 * t_pulse), 1)
         pygame.draw.circle(self.screen, COLOR_ACCENT_MAGENTA, (tcx, tcy), 2)
+
+    # Draws the active vector spaceship model with particle spark emissions
+    def _draw_spaceship(self):
+        # Spaceship pixel coordinate center
+        px = self.grid_margin_left + self.ship_x * self.cell_size + self.cell_size // 2
+        py = self.grid_margin_top + self.ship_y * self.cell_size + self.cell_size // 2
+
+        # Update ship thruster exhaust sparks
+        self.particles.draw(self.screen)
+
+        # Draw ship hull (a sharp glowing delta wing fighter)
+        ship_radius = max(4, int(self.cell_size * 0.42))
+        rad_angle = math.radians(self.ship_angle)
+
+        # Calculate three polygon points of spaceship triangle based on orientation angle
+        p1 = (px + ship_radius * 1.5 * math.sin(rad_angle), py + ship_radius * 1.5 * math.cos(rad_angle))
+        p2 = (px + ship_radius * math.sin(rad_angle + 2.3), py + ship_radius * math.cos(rad_angle + 2.3))
+        p3 = (px + ship_radius * math.sin(rad_angle - 2.3), py + ship_radius * math.cos(rad_angle - 2.3))
+
+        # Ship filling
+        pygame.draw.polygon(self.screen, (10, 45, 60), [p1, p2, p3])
+        # Cyan neon edges
+        pygame.draw.polygon(self.screen, COLOR_ACCENT_CYAN, [p1, p2, p3], 1)
+
+        # Engine exhaust glow core
+        engine_pos = (px - ship_radius * 0.7 * math.sin(rad_angle), py - ship_radius * 0.7 * math.cos(rad_angle))
+        pygame.draw.circle(self.screen, (255, 255, 255), (int(engine_pos[0]), int(engine_pos[1])), 1)
