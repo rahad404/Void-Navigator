@@ -283,3 +283,83 @@ class ParticleEngine:
             p_surf = pygame.Surface((size*2, size*2), pygame.SRCALPHA)
             pygame.draw.circle(p_surf, (p["color"][0], p["color"][1], p["color"][2], alpha), (size, size), size)
             surface.blit(p_surf, (p["x"] - size, p["y"] - size))
+
+# main engine class
+class VoidNavigatorApp:
+    def __init__(self):
+        pygame.init()
+        pygame.display.set_caption("Void Navigator - AI Pathfinding Dashboard")
+
+        # Adjustable Window State - default is a compact size that fits all displays comfortably
+        self.window_width = 1020
+        self.window_height = 680
+        self.screen = pygame.display.set_mode((self.window_width, self.window_height), pygame.RESIZABLE)
+        self.clock = pygame.time.Clock()
+
+        # Load fonts
+        self.font_title = pygame.font.SysFont(["consolas", "monospace", "courier"], 20, bold=True)
+        self.font_normal = pygame.font.SysFont(["consolas", "monospace", "courier"], 14)
+        self.font_bold = pygame.font.SysFont(["consolas", "monospace", "courier"], 14, bold=True)
+        self.font_hud = pygame.font.SysFont(["consolas", "monospace", "courier"], 11)
+
+        # Core Engines Initialization
+        self.fetcher = NASADataFetcher(grid_size=GRID_SIZE)
+        self.grid_model = AStarGrid(size=GRID_SIZE)
+        self.particles = ParticleEngine()
+
+        # Application States
+        self.current_stage = 1  # 1 = Asteroids, 2 = Deep Space
+        self.start_node = START_COORDS
+        self.end_node = END_COORDS
+        self.active_path = None
+        self.open_list_vis = set()
+        self.closed_list_vis = set()
+
+        # Toggles
+        self.show_search_tree = True
+        self.heuristic_mode = "octile" # octile, euclidean, manhattan
+        self.mouse_mode = "start"      # "start" or "target" (defines what grid left-click does)
+
+        # Radar Sweep Animation
+        self.radar_angle = 0.0
+
+        # Twinkle starfield background buffer (oversized to cover any screen expansions smoothly)
+        self.stars_bg = [{"x": random.randint(0, 2560),
+                          "y": random.randint(0, 1600),
+                          "size": random.choice([1, 2]),
+                          "twinkle_speed": random.uniform(0.02, 0.05),
+                          "phase": random.uniform(0, math.pi * 2)} for _ in range(200)]
+
+        # Spaceship animation state
+        self.is_animating = False
+        self.anim_index = 0
+        self.ship_x = float(self.start_node[0])
+        self.ship_y = float(self.start_node[1])
+        self.ship_angle = 0.0
+        self.ship_speed_mult = 0.15  # Traversal speed
+        self.fuel_level = 100.0
+
+        # Sensors Scan Details
+        self.active_scanned_object = None
+        self.hologram_rotation_angle = 0.0
+
+        # Stage 1 Custom Planetary Stations (Not obstacles, acts as departures/destinations)
+        self.stage_1_planets = [
+            {"name": "Earth Station", "x": 5, "y": 5, "color": (60, 110, 200), "atmos": (80, 180, 255), "radius": 10},
+            {"name": "Mars Colony", "x": 34, "y": 34, "color": (220, 90, 60), "atmos": (255, 130, 80), "radius": 9},
+            {"name": "Mercury Outpost", "x": 12, "y": 25, "color": (120, 120, 120), "atmos": (150, 150, 150), "radius": 6},
+            {"name": "Venus Observatory", "x": 22, "y": 12, "color": (225, 190, 130), "atmos": (245, 210, 150), "radius": 8},
+            {"name": "Jupiter Research", "x": 32, "y": 8, "color": (205, 130, 80), "atmos": (225, 160, 110), "radius": 12},
+            {"name": "Saturn Gateway", "x": 8, "y": 32, "color": (220, 200, 140), "atmos": (240, 220, 160), "radius": 10, "rings": True}
+        ]
+
+        # Load stage datasets
+        self.asteroids_dataset = []
+        self.deep_space_dataset = self.fetcher.deep_space_catalog
+
+        # Calculate layout coordinates at startup
+        self.update_layout_dimensions()
+
+        # Fetch initial asteroid data
+        self.reload_asteroids()
+        self.calculate_path()
