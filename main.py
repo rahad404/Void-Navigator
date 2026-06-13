@@ -247,3 +247,39 @@ class CosmicObjectRenderer:
 
             pygame.draw.circle(neb_surf, color, (radius, radius), radius)
             surface.blit(neb_surf, (cx + dx - radius, cy + dy - radius))
+
+# particle engine to generate thruster spark effect
+class ParticleEngine:
+    """Manages thruster spark particles emitted by the moving spaceship."""
+    def __init__(self):
+        self.particles = []
+
+    def emit(self, x, y, dx, dy):
+        """Creates new spark particles behind the ship."""
+        for _ in range(3):
+            self.particles.append({
+                "x": x,
+                "y": y,
+                # Random velocity spraying opposite to ship movement
+                "vx": -dx * 1.5 + random.uniform(-0.5, 0.5),
+                "vy": -dy * 1.5 + random.uniform(-0.5, 0.5),
+                "life": 1.0, # Decay life percentage (1.0 -> 0.0)
+                "color": random.choice([COLOR_ACCENT_CYAN, (255, 150, 0), (255, 60, 0)]) # Cyan/orange sparks
+            })
+
+    def update(self):
+        for p in self.particles:
+            p["x"] += p["vx"]
+            p["y"] += p["vy"]
+            p["life"] -= 0.04
+        # Filter dead particles
+        self.particles = [p for p in self.particles if p["life"] > 0]
+
+    def draw(self, surface):
+        for p in self.particles:
+            size = max(1, int(p["life"] * 4))
+            alpha = int(p["life"] * 255)
+            # Create small surfaces for alpha blend
+            p_surf = pygame.Surface((size*2, size*2), pygame.SRCALPHA)
+            pygame.draw.circle(p_surf, (p["color"][0], p["color"][1], p["color"][2], alpha), (size, size), size)
+            surface.blit(p_surf, (p["x"] - size, p["y"] - size))
