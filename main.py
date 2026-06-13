@@ -796,3 +796,38 @@ class VoidNavigatorApp:
 
         # Main grid border box
         pygame.draw.rect(self.screen, COLOR_HUD_BORDER, radar_rect, 2)
+
+    # draw path finder routs
+    def _draw_pathfinding_routes(self):
+        # 1. Overlay open list and closed list if debug is active
+        if self.show_search_tree:
+            overlay = pygame.Surface((self.grid_display_size, self.grid_display_size), pygame.SRCALPHA)
+
+            # Closed nodes overlay (Red/Blue fading overlay)
+            for x, y in self.closed_list_vis:
+                cell_rect = pygame.Rect(x * self.cell_size + 1, y * self.cell_size + 1, self.cell_size - 1, self.cell_size - 1)
+                pygame.draw.rect(overlay, COLOR_CLOSED_LIST, cell_rect)
+
+            # Open nodes overlay (Green fading overlay)
+            for x, y in self.open_list_vis:
+                cell_rect = pygame.Rect(x * self.cell_size + 1, y * self.cell_size + 1, self.cell_size - 1, self.cell_size - 1)
+                pygame.draw.rect(overlay, COLOR_OPEN_LIST, cell_rect)
+
+            self.screen.blit(overlay, (self.grid_margin_left, self.grid_margin_top))
+
+        # 2. Draw calculations path route (neon cyan line)
+        if self.active_path and len(self.active_path) > 1:
+            points = []
+            for px, py in self.active_path:
+                cx = self.grid_margin_left + px * self.cell_size + self.cell_size // 2
+                cy = self.grid_margin_top + py * self.cell_size + self.cell_size // 2
+                points.append((cx, cy))
+
+            # Thick background glow line
+            pygame.draw.lines(self.screen, (0, 100, 130), False, points, 5)
+            # Thin sharp center line
+            pygame.draw.lines(self.screen, COLOR_ACCENT_CYAN, False, points, 2)
+
+            # Draw nodes along path as small neon dots
+            for pt in points:
+                pygame.draw.circle(self.screen, COLOR_TEXT_BRIGHT, pt, 2)
