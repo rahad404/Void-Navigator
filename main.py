@@ -1146,3 +1146,19 @@ class VoidNavigatorApp:
                 sweep_line_x = h_cx + h_r * math.cos(self.radar_angle * 2)
                 sweep_line_y = h_cy + h_r * math.sin(self.radar_angle * 2)
                 pygame.draw.line(self.screen, COLOR_ACCENT_GREEN, (h_cx, h_cy), (sweep_line_x, sweep_line_y), 2)
+
+# application runner entry point
+def main():
+    app = VoidNavigatorApp()
+
+    # Framerate configuration: Space radar runs at solid 60 FPS
+    FPS = 60
+
+    while True:
+        app.handle_events()
+        app.update()
+        app.draw()
+        app.clock.tick(FPS)
+
+if __name__ == "__main__":
+    main()
