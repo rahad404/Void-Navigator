@@ -922,3 +922,227 @@ class VoidNavigatorApp:
         # Engine exhaust glow core
         engine_pos = (px - ship_radius * 0.7 * math.sin(rad_angle), py - ship_radius * 0.7 * math.cos(rad_angle))
         pygame.draw.circle(self.screen, (255, 255, 255), (int(engine_pos[0]), int(engine_pos[1])), 1)
+
+    # sidebar ui
+    # Draws the right-side control terminal and sensor scanner readouts
+    def _draw_hud_sidebar(self):
+        sb_x = self.sidebar_x
+        sb_w = self.sidebar_width
+
+        panel_rect = pygame.Rect(sb_x, 0, sb_w, self.window_height)
+        pygame.draw.rect(self.screen, COLOR_HUD_PANEL, panel_rect)
+        pygame.draw.line(self.screen, COLOR_HUD_BORDER, (sb_x, 0), (sb_x, self.window_height), 2)
+
+        # 1. Main Header
+        header_surf = self.font_title.render("VOID NAVIGATOR HUD", True, COLOR_ACCENT_CYAN)
+        self.screen.blit(header_surf, (sb_x + 20, 20))
+        pygame.draw.line(self.screen, COLOR_HUD_BORDER, (sb_x + 20, 50), (self.window_width - 20, 50), 1)
+
+        # System Status Subtitle
+        status_txt = "SYSTEM FLIGHT READY" if not self.is_animating else "AUTOPILOT TRANSIT ENGAGED"
+        status_col = COLOR_ACCENT_GREEN if not self.is_animating else COLOR_ACCENT_CYAN
+
+        # Dynamic alarm state: If the spaceship is in a hazard zone (proximity to obstacle)
+        ship_cell = (int(round(self.ship_x)), int(round(self.ship_y)))
+        current_node = self.grid_model.get_node(*ship_cell)
+        is_in_hazard = current_node and current_node.hazard_weight > 0
+
+        if is_in_hazard:
+            status_txt = "GRAVITATIONAL WELL DETECTED"
+            status_col = COLOR_ACCENT_AMBER
+
+            # Draw pulsing screen warning border (Alarm effect)
+            alarm_alpha = int(40 + 40 * math.sin(pygame.time.get_ticks() / 100.0))
+            alarm_surf = pygame.Surface((self.grid_display_size, self.grid_display_size), pygame.SRCALPHA)
+            pygame.draw.rect(alarm_surf, (255, 120, 0, alarm_alpha), (0, 0, self.grid_display_size, self.grid_display_size), 8)
+            self.screen.blit(alarm_surf, (self.grid_margin_left, self.grid_margin_top))
+
+        sub_surf = self.font_hud.render(f"STATUS // {status_txt}", True, status_col)
+        self.screen.blit(sub_surf, (sb_x + 20, 60))
+
+        # Draw stage control buttons
+        for btn in self.buttons:
+            btn.draw(self.screen, self.font_normal)
+
+        # 2. Draw Start/Target Selector Text Boxes between the cyclic arrows
+        start_name = self._get_body_name_at_pos(self.start_node)
+        s_box = pygame.Rect(sb_x + 50, 235, sb_w - 100, 25)
+        pygame.draw.rect(self.screen, (10, 15, 25), s_box)
+        pygame.draw.rect(self.screen, COLOR_HUD_BORDER, s_box, 1)
+        start_txt_surf = self.font_hud.render(f"START: {start_name}", True, COLOR_ACCENT_GREEN)
+        start_txt_rect = start_txt_surf.get_rect(center=s_box.center)
+        self.screen.blit(start_txt_surf, start_txt_rect)
+
+        target_name = self._get_body_name_at_pos(self.end_node)
+        t_box = pygame.Rect(sb_x + 50, 265, sb_w - 100, 25)
+        pygame.draw.rect(self.screen, (10, 15, 25), t_box)
+        pygame.draw.rect(self.screen, COLOR_HUD_BORDER, t_box, 1)
+        target_txt_surf = self.font_hud.render(f"TARGET: {target_name}", True, COLOR_ACCENT_MAGENTA)
+        target_txt_rect = target_txt_surf.get_rect(center=t_box.center)
+        self.screen.blit(target_txt_surf, target_txt_rect)
+
+        # 3. Telemetry Information Box
+        pygame.draw.rect(self.screen, (10, 15, 25), (sb_x + 15, 300, sb_w - 30, 115))
+        pygame.draw.rect(self.screen, COLOR_HUD_BORDER, (sb_x + 15, 300, sb_w - 30, 115), 1)
+
+        t_title = self.font_bold.render("CRITICAL FLIGHT TELEMETRY", True, COLOR_TEXT_BRIGHT)
+        self.screen.blit(t_title, (sb_x + 30, 308))
+
+        # Values calculations
+        path_cost = round(len(self.active_path), 1) if self.active_path else 0.0
+        g_cost = round(self.grid_model.get_node(*self.end_node).g, 2) if (self.active_path and self.grid_model.get_node(*self.end_node).g != float('inf')) else 0.0
+
+        coord_str = f"LOC  X: {self.ship_x:04.1f} | Y: {self.ship_y:04.1f}"
+        fuel_str = f"FUEL REMAINING: {self.fuel_level:05.1f}%"
+        node_str = f"NODES IN PATH: {path_cost}"
+        cost_str = f"ACCUMULATED PATH COST: {g_cost}"
+
+        self.screen.blit(self.font_hud.render(coord_str, True, COLOR_TEXT_MUTED), (sb_x + 30, 328))
+        self.screen.blit(self.font_hud.render(fuel_str, True, COLOR_TEXT_MUTED), (sb_x + 30, 344))
+        self.screen.blit(self.font_hud.render(node_str, True, COLOR_TEXT_MUTED), (sb_x + 30, 360))
+        self.screen.blit(self.font_hud.render(cost_str, True, COLOR_TEXT_MUTED), (sb_x + 30, 376))
+
+        # Fuel percentage bar graph
+        bar_x = sb_x + sb_w - 170
+        pygame.draw.rect(self.screen, (20, 30, 45), (bar_x, 344, 140, 12))
+        fuel_w = int(140 * (self.fuel_level / 100.0))
+        fuel_col = COLOR_ACCENT_GREEN if self.fuel_level > 30 else COLOR_ACCENT_RED
+        if fuel_w > 0:
+            pygame.draw.rect(self.screen, fuel_col, (bar_x, 344, fuel_w, 12))
+
+        # 4. Obstacle avoidance scanner (HUD Radar details)
+        scanner_y = 425
+        scanner_h = self.window_height - scanner_y - 20
+        pygame.draw.rect(self.screen, (10, 15, 25), (sb_x + 15, scanner_y, sb_w - 30, scanner_h))
+        pygame.draw.rect(self.screen, COLOR_HUD_BORDER, (sb_x + 15, scanner_y, sb_w - 30, scanner_h), 1)
+
+        s_title = self.font_bold.render("RADAR RANGE SCANNER", True, COLOR_TEXT_BRIGHT)
+        self.screen.blit(s_title, (sb_x + 30, scanner_y + 10))
+
+        if self.active_scanned_object:
+            obj = self.active_scanned_object
+
+            # Print Details dynamically depending on stage object structure
+            if "diameter_km" in obj:
+                # Stage 1 Asteroid details
+                name_surf = self.font_bold.render(f"OBJECT: {obj['name']}", True, COLOR_ACCENT_AMBER)
+                type_surf = self.font_normal.render("CLASS: Near-Earth Asteroid", True, COLOR_TEXT_MUTED)
+                dim_surf = self.font_normal.render(f"DIAMETER: {obj['diameter_km']} km", True, COLOR_TEXT_MUTED)
+                vel_surf = self.font_normal.render(f"SPEED: {obj['velocity_kph']:,} km/h", True, COLOR_TEXT_MUTED)
+                miss_surf = self.font_normal.render(f"APPROACH: {obj['miss_distance_km']:,} km", True, COLOR_TEXT_MUTED)
+                hazard_surf = self.font_bold.render(
+                    f"NASA HAZARD: {'DANGEROUS' if obj['is_hazardous'] else 'STABLE'}",
+                    True, COLOR_ACCENT_RED if obj['is_hazardous'] else COLOR_ACCENT_GREEN
+                )
+            else:
+                # Stage 2 Deep space details
+                name_surf = self.font_bold.render(f"OBJECT: {obj['name']}", True, COLOR_ACCENT_CYAN)
+                type_surf = self.font_normal.render(f"CLASS: Celestial {obj['type']}", True, COLOR_TEXT_MUTED)
+                dim_surf = self.font_normal.render(f"SPECTRAL: {obj.get('spectral_class', 'N/A')}", True, COLOR_TEXT_MUTED)
+                vel_surf = self.font_normal.render(f"DISTANCE: {obj.get('distance_ly', 0.0):,} Light-years", True, COLOR_TEXT_MUTED)
+                miss_surf = self.font_normal.render(f"MAGNITUDE: {obj.get('magnitude', 0.0)}", True, COLOR_TEXT_MUTED)
+                hazard_surf = self.font_bold.render("HAZARD: GRAVITY CORE", True, COLOR_ACCENT_AMBER)
+
+            self.screen.blit(name_surf, (sb_x + 30, scanner_y + 35))
+            self.screen.blit(type_surf, (sb_x + 30, scanner_y + 60))
+            self.screen.blit(dim_surf, (sb_x + 30, scanner_y + 80))
+            self.screen.blit(vel_surf, (sb_x + 30, scanner_y + 100))
+            self.screen.blit(miss_surf, (sb_x + 30, scanner_y + 120))
+            self.screen.blit(hazard_surf, (sb_x + 30, scanner_y + 140))
+
+            # 5. Animated Hologram Scanner (Scales and positions relative to box height)
+            h_r = min(40, (scanner_h - 170) // 2)
+            if h_r > 15:
+                h_cx = sb_x + sb_w - 70
+                h_cy = scanner_y + scanner_h - h_r - 20
+                pygame.draw.circle(self.screen, (20, 25, 40), (h_cx, h_cy), h_r)
+                pygame.draw.circle(self.screen, COLOR_HUD_BORDER, (h_cx, h_cy), h_r, 1)
+
+                # Crosshair inside hologram
+                pygame.draw.line(self.screen, (30, 40, 60), (h_cx - h_r - 5, h_cy), (h_cx + h_r + 5, h_cy), 1)
+                pygame.draw.line(self.screen, (30, 40, 60), (h_cx, h_cy - h_r - 5), (h_cx, h_cy + h_r + 5), 1)
+
+                t = pygame.time.get_ticks() / 300.0
+                r_scale = 1.0 + 0.05 * math.sin(t)
+
+                obj_type = obj.get("type", "Asteroid")
+                if obj_type == "Asteroid":
+                    # Draw rotating wireframe polyhedron
+                    num_v = 6
+                    v_points = []
+                    random.seed(obj["id"])
+                    for i in range(num_v):
+                        angle = i * (2*math.pi / num_v) + self.hologram_rotation_angle
+                        z_depth = 0.5 + 0.4 * math.sin(angle + i)
+                        r = int(h_r * 0.8 * r_scale * z_depth)
+                        vx = h_cx + r * math.cos(angle)
+                        vy = h_cy + r * math.sin(angle) * 0.4
+                        v_points.append((vx, vy))
+                    for i in range(len(v_points)):
+                        pygame.draw.line(self.screen, COLOR_ACCENT_AMBER, v_points[i], v_points[(i+1)%len(v_points)], 1)
+                        pygame.draw.line(self.screen, (COLOR_ACCENT_AMBER[0]//2, COLOR_ACCENT_AMBER[1]//2, 0), v_points[i], (h_cx, h_cy), 1)
+
+                elif obj_type == "Star":
+                    pulse_r = int(h_r * 0.5 + 4 * math.sin(t*2))
+                    pygame.draw.circle(self.screen, (0, 120, 180, 80), (h_cx, h_cy), pulse_r, 1)
+                    pygame.draw.circle(self.screen, COLOR_ACCENT_CYAN, (h_cx, h_cy), max(1, pulse_r - 3), 2)
+                    pygame.draw.circle(self.screen, (255, 255, 255), (h_cx, h_cy), 3)
+
+                elif obj_type == "Galaxy":
+                    for a in range(2):
+                        g_points = []
+                        a_phase = a * math.pi
+                        for f in range(12):
+                            factor = f / 12.0
+                            dist = factor * h_r * 0.85
+                            rot = self.hologram_rotation_angle * 1.5 + a_phase + factor * 4.0
+                            gx = h_cx + dist * math.cos(rot)
+                            gy = h_cy + dist * math.sin(rot) * 0.5
+                            g_points.append((gx, gy))
+                        if len(g_points) > 1:
+                            pygame.draw.lines(self.screen, COLOR_ACCENT_CYAN, False, g_points, 1)
+
+                elif obj_type == "Nebula":
+                    for idx in range(3):
+                        o_r = int(h_r * 0.3) + idx * int(h_r * 0.25)
+                        w = o_r
+                        h = int(o_r * 0.5)
+                        pygame.draw.ellipse(self.screen, COLOR_ACCENT_GREEN, (h_cx - w//2, h_cy - h//2, w, h), 1)
+
+            # Display short catalog text description
+            desc_y = scanner_y + 170
+            if scanner_h > 210:
+                tag_surf = self.font_hud.render("SENSORS ANALYSIS SCANNER", True, COLOR_TEXT_MUTED)
+                self.screen.blit(tag_surf, (sb_x + 30, desc_y))
+
+                desc = obj.get("description", "Analyzing stellar structures...")
+                desc_words = desc.split(' ')
+                lines = []
+                cur_line = ""
+                for w in desc_words:
+                    if len(cur_line + " " + w) < (sb_w - 60) // 6.5:
+                        cur_line += " " + w
+                    else:
+                        lines.append(cur_line.strip())
+                        cur_line = w
+                if cur_line:
+                    lines.append(cur_line.strip())
+
+                # Print max lines that fit nicely in the height
+                max_lines = max(1, (scanner_h - 195) // 16)
+                for line_idx, line in enumerate(lines[:max_lines]):
+                    self.screen.blit(self.font_hud.render(line, True, COLOR_TEXT_BRIGHT), (sb_x + 30, desc_y + 20 + line_idx * 15))
+        else:
+            # Standby search text when no object is nearby
+            tag_surf = self.font_normal.render("SENSORS STANDBY // NO COLLISION", True, COLOR_TEXT_MUTED)
+            self.screen.blit(tag_surf, (sb_x + 30, scanner_y + 45))
+
+            # Place rotating sweep radar in center of scanner when idle
+            h_r = min(45, (scanner_h - 100) // 2)
+            if h_r > 15:
+                h_cx = sb_x + sb_w // 2
+                h_cy = scanner_y + scanner_h - h_r - 20
+                pygame.draw.circle(self.screen, COLOR_HUD_BORDER, (h_cx, h_cy), h_r, 1)
+                sweep_line_x = h_cx + h_r * math.cos(self.radar_angle * 2)
+                sweep_line_y = h_cy + h_r * math.sin(self.radar_angle * 2)
+                pygame.draw.line(self.screen, COLOR_ACCENT_GREEN, (h_cx, h_cy), (sweep_line_x, sweep_line_y), 2)
