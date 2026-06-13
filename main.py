@@ -365,8 +365,8 @@ class VoidNavigatorApp:
         self.calculate_path()
 
     # update layout dimention
+    # Calculates sizing variables dynamically based on window width and height.
     def update_layout_dimensions(self):
-        """Calculates sizing variables dynamically based on window width and height."""
         # Enforce minimum size boundary constraints to avoid UI collapse
         self.window_width = max(800, self.window_width)
         self.window_height = max(550, self.window_height)
@@ -387,3 +387,26 @@ class VoidNavigatorApp:
 
         # Refresh button layouts
         self._build_ui_buttons()
+
+    # reload astroid
+    # Fetches active asteroid assets from NASA fetcher and applies them to the grid
+    def reload_asteroids(self):
+        self.asteroids_dataset = self.fetcher.fetch_asteroids()
+        self.sync_obstacles_to_grid()
+
+    # Populates the A* grid obstacles from the active stage datasets.
+    def sync_obstacles_to_grid(self):
+        self.grid_model.reset_grid()
+        self.active_scanned_object = None
+
+        if self.current_stage == 1:
+            # Stage 1: Load Asteroids (Planets are left passable as stations!)
+            for ast in self.asteroids_dataset:
+                self.grid_model.set_obstacle(ast["x"], ast["y"], is_obstacle=True, celestial_obj=ast)
+        else:
+            # Stage 2: Load Stars, Galaxies, Nebulae
+            for obj in self.deep_space_dataset:
+                self.grid_model.set_obstacle(obj["x"], obj["y"], is_obstacle=True, celestial_obj=obj)
+
+        # Apply hazard buffer costs surrounding obstacles
+        self.grid_model.apply_hazard_margins(margin_radius=1, cost_increment=5.0)
