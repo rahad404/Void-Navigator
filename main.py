@@ -548,3 +548,12 @@ class VoidNavigatorApp:
                         if not is_obstacle:
                             self.end_node = grid_coord
                             self.calculate_path()
+
+    # Converts window pixel coordinates of a mouse click into grid indices
+    def _get_grid_coord_from_mouse(self, mouse_pos):
+        mx, my = mouse_pos
+        gx = (mx - self.grid_margin_left) // self.cell_size
+        gy = (my - self.grid_margin_top) // self.cell_size
+        if 0 <= gx < GRID_SIZE and 0 <= gy < GRID_SIZE:
+            return (gx, gy)
+        return None
