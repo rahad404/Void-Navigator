@@ -557,3 +557,74 @@ class VoidNavigatorApp:
         if 0 <= gx < GRID_SIZE and 0 <= gy < GRID_SIZE:
             return (gx, gy)
         return None
+
+    # Resolves active sidebar button presses
+    def _trigger_button_action(self, action_id):
+        bodies = self._get_selectable_bodies()
+
+        # Helper to find current selected body index
+        def find_index(pos):
+            for i, b in enumerate(bodies):
+                if b["pos"] == pos:
+                    return i
+            return -1
+
+        if action_id == "stage_1":
+            self.current_stage = 1
+            self.start_node = START_COORDS
+            self.end_node = END_COORDS
+            self.sync_obstacles_to_grid()
+            self.calculate_path()
+        elif action_id == "stage_2":
+            self.current_stage = 2
+            # Snap start/target to catalog coordinates
+            self.start_node = (bodies[0]["pos"])
+            self.end_node = (bodies[len(bodies)-1]["pos"])
+            self.sync_obstacles_to_grid()
+            self.calculate_path()
+        elif action_id == "calc_path":
+            self.calculate_path()
+        elif action_id == "launch":
+            self.trigger_autopilot()
+        elif action_id == "refresh":
+            if self.current_stage == 1:
+                self.reload_asteroids()
+            self.calculate_path()
+        elif action_id == "toggle_tree":
+            self.show_search_tree = not self.show_search_tree
+        elif action_id == "click_mode":
+            self.mouse_mode = "target" if self.mouse_mode == "start" else "start"
+        elif action_id == "heuristic":
+            # Rotate heuristic method
+            if self.heuristic_mode == "octile":
+                self.heuristic_mode = "euclidean"
+            elif self.heuristic_mode == "euclidean":
+                self.heuristic_mode = "manhattan"
+            else:
+                self.heuristic_mode = "octile"
+            self.calculate_path()
+
+        # Cycle Selections
+        elif action_id == "start_prev":
+            idx = find_index(self.start_node)
+            new_idx = (idx - 1) % len(bodies) if idx != -1 else 0
+            self.start_node = bodies[new_idx]["pos"]
+            self.calculate_path()
+        elif action_id == "start_next":
+            idx = find_index(self.start_node)
+            new_idx = (idx + 1) % len(bodies) if idx != -1 else 0
+            self.start_node = bodies[new_idx]["pos"]
+            self.calculate_path()
+        elif action_id == "target_prev":
+            idx = find_index(self.end_node)
+            new_idx = (idx - 1) % len(bodies) if idx != -1 else 0
+            self.end_node = bodies[new_idx]["pos"]
+            self.calculate_path()
+        elif action_id == "target_next":
+            idx = find_index(self.end_node)
+            new_idx = (idx + 1) % len(bodies) if idx != -1 else 0
+            self.end_node = bodies[new_idx]["pos"]
+            self.calculate_path()
+
+        # Update visual button toggles
+        self._build_ui_buttons()
