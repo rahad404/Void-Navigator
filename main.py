@@ -71,3 +71,179 @@ class Button:
     def check_hover(self, mouse_pos):
         self.is_hovered = self.rect.collidepoint(mouse_pos)
         return self.is_hovered
+
+# cosmic object class
+class CosmicObjectRenderer:
+    """Handles rendering of various celestial bodies procedurally with glow layers."""
+    @staticmethod
+    def draw_planet(surface, cx, cy, radius, primary_color, atmosphere_color, name=""):
+        # 1. Glow layer
+        glow_surf = pygame.Surface((radius * 4, radius * 4), pygame.SRCALPHA)
+        for i in range(radius * 2, radius, -2):
+            alpha = int(45 * (1.0 - (i - radius) / radius))
+            pygame.draw.circle(glow_surf, (atmosphere_color[0], atmosphere_color[1], atmosphere_color[2], alpha), (radius*2, radius*2), i)
+        surface.blit(glow_surf, (cx - radius*2, cy - radius*2))
+
+        # 2. Base planet sphere
+        pygame.draw.circle(surface, primary_color, (cx, cy), radius)
+
+        # 3. Dynamic surface patterns (continents, storm bands)
+        random.seed(name)  # Generate consistent surface structures based on the name
+        pattern_surf = pygame.Surface((radius * 2, radius * 2), pygame.SRCALPHA)
+        pygame.draw.circle(pattern_surf, (255, 255, 255, 255), (radius, radius), radius)
+
+        if "Earth" in name:
+            # Draw continents on Earth
+            for _ in range(5):
+                continent_color = (34, 139, 34, 180) # Forest green
+                px = radius + random.randint(-radius//2, radius//2)
+                py = radius + random.randint(-radius//2, radius//2)
+                pr = random.randint(radius//4, radius//2)
+                pygame.draw.circle(pattern_surf, continent_color, (px, py), pr)
+        else:
+            # Draw storms/bands on Mars or other planets
+            for _ in range(3):
+                band_color = (primary_color[0]//2, primary_color[1]//2, primary_color[2]//2, 150)
+                bx = radius
+                by = radius + random.randint(-radius//2, radius//2)
+                bw = random.randint(radius//2, radius)
+                bh = random.randint(2, 5)
+                pygame.draw.ellipse(pattern_surf, band_color, (bx - bw, by - bh//2, bw*2, bh))
+
+        # Clip patterns to circular sphere
+        sphere_mask = pygame.Surface((radius * 2, radius * 2), pygame.SRCALPHA)
+        pygame.draw.circle(sphere_mask, (255, 255, 255, 255), (radius, radius), radius)
+        pattern_surf.blit(sphere_mask, (0, 0), special_flags=pygame.BLEND_RGBA_MIN)
+        surface.blit(pattern_surf, (cx - radius, cy - radius))
+
+        # 4. Shadow/crescent overlay (3D volume effect)
+        shadow_surf = pygame.Surface((radius * 2, radius * 2), pygame.SRCALPHA)
+        pygame.draw.circle(shadow_surf, (0, 0, 0, 140), (radius, radius), radius)
+        pygame.draw.circle(shadow_surf, (0, 0, 0, 0), (radius - radius//3, radius - radius//3), radius)
+        surface.blit(shadow_surf, (cx - radius, cy - radius))
+
+    @staticmethod
+    def draw_asteroid(surface, cx, cy, radius, details):
+        # Asteroids are jagged irregular polygons
+        num_points = 8
+        points = []
+        random.seed(details["id"])
+
+        for i in range(num_points):
+            angle = i * (2 * math.pi / num_points)
+            r_offset = random.randint(-int(radius*0.25), int(radius*0.25))
+            r = max(3, radius + r_offset)
+            x = cx + r * math.cos(angle)
+            y = cy + r * math.sin(angle)
+            points.append((x, y))
+
+        color = (139, 115, 85) if not details.get("is_hazardous") else (210, 80, 80)
+        # Inner fill
+        pygame.draw.polygon(surface, (color[0]//2, color[1]//2, color[2]//2), points)
+        # Outer wireframe contour
+        pygame.draw.polygon(surface, color, points, 1)
+
+        # Draw a small asteroid glow if hazardous
+        if details.get("is_hazardous"):
+            glow = pygame.Surface((radius*4, radius*4), pygame.SRCALPHA)
+            pygame.draw.circle(glow, (255, 50, 50, 40), (radius*2, radius*2), radius*2)
+            surface.blit(glow, (cx - radius*2, cy - radius*2))
+
+    @staticmethod
+    def draw_star(surface, cx, cy, spectral, cell_size):
+        # Map spectral class to visual color and size
+        char = spectral[0].upper() if spectral else 'G'
+        star_map = {
+            'O': ((180, 220, 255), 7, (130, 180, 255)), # Deep blue
+            'B': ((200, 240, 255), 6, (150, 200, 255)), # Cyan-blue
+            'A': ((255, 255, 255), 5, (200, 220, 255)), # Bright white
+            'F': ((255, 255, 220), 5, (255, 255, 170)), # Yellow-white
+            'G': ((255, 235, 150), 4, (255, 200, 100)), # Yellow (Sun)
+            'K': ((255, 170, 80), 5, (255, 120, 50)),   # Orange giant
+            'M': ((255, 90, 70), 8, (255, 50, 30))       # Red supergiant
+        }
+        color, base_radius, glow_color = star_map.get(char, star_map['G'])
+
+        # Scale radius based on cell size to look nice on all window sizes
+        scale_r = max(2, int(base_radius * (cell_size / 19.0)))
+
+        # 1. Radiant pulsing glow
+        pulse = 1.0 + 0.15 * math.sin(pygame.time.get_ticks() / 150.0)
+        glow_radius = int(scale_r * 3.5 * pulse)
+        glow = pygame.Surface((glow_radius*2, glow_radius*2), pygame.SRCALPHA)
+        pygame.draw.circle(glow, (glow_color[0], glow_color[1], glow_color[2], 50), (glow_radius, glow_radius), glow_radius)
+        surface.blit(glow, (cx - glow_radius, cy - glow_radius))
+
+        # 2. Main star body
+        pygame.draw.circle(surface, (255, 255, 255), (cx, cy), scale_r)
+        pygame.draw.circle(surface, color, (cx, cy), scale_r, 1)
+
+    @staticmethod
+    def draw_galaxy(surface, cx, cy, details, time_tick, cell_size):
+        # Draw a beautiful rotating spiral galaxy
+        random.seed(details["id"])
+        num_arms = 2
+        particles_per_arm = 25
+
+        # Dynamic rotation speed based on ticks
+        base_angle = (time_tick / 60.0) % (2 * math.pi)
+
+        # Scale size dynamically
+        gal_r = int(cell_size * 1.1)
+
+        # Draw central nucleus glow
+        nucleus_glow = pygame.Surface((gal_r*2, gal_r*2), pygame.SRCALPHA)
+        pygame.draw.circle(nucleus_glow, (255, 180, 255, 60), (gal_r, gal_r), gal_r)
+        surface.blit(nucleus_glow, (cx - gal_r, cy - gal_r))
+        pygame.draw.circle(surface, (255, 230, 255), (cx, cy), max(2, cell_size//8))
+
+        # Draw arm spirals using tiny dots
+        for arm in range(num_arms):
+            arm_phase = arm * math.pi
+            for i in range(1, particles_per_arm):
+                factor = i / float(particles_per_arm)
+                dist = factor * gal_r * 1.15  # Arm extension radius
+                spiral_angle = base_angle + arm_phase + (factor * 3.5) # Spiral curl rate
+
+                # Add small dispersion dispersion
+                disp_x = random.randint(-1, 1)
+                disp_y = random.randint(-1, 1)
+
+                px = cx + dist * math.cos(spiral_angle) + disp_x
+                py = cy + dist * math.sin(spiral_angle) + disp_y
+
+                # Color shifts from core (bright pink/white) to edge (cyan/blue)
+                r = int(255 * (1.0 - factor) + 50 * factor)
+                g = int(200 * (1.0 - factor) + 200 * factor)
+                b = int(255)
+
+                if 0 <= px < surface.get_width() and 0 <= py < surface.get_height():
+                    surface.set_at((int(px), int(py)), (r, g, b))
+
+    @staticmethod
+    def draw_nebula(surface, cx, cy, details, time_tick, cell_size):
+        # Draw soft, overlapping gas clouds (using transparent circles)
+        random.seed(details["id"])
+        num_clouds = 4
+        base_neb_r = int(cell_size * 0.95)
+
+        for i in range(num_clouds):
+            # Slow orbital drift of the cloud cells
+            drift_angle = (time_tick / (100.0 + i*20.0)) + i * (math.pi/2.0)
+            dx = (cell_size // 4) * math.cos(drift_angle)
+            dy = (cell_size // 4) * math.sin(drift_angle)
+
+            radius = random.randint(int(base_neb_r * 0.75), int(base_neb_r * 1.15))
+            neb_surf = pygame.Surface((radius*2, radius*2), pygame.SRCALPHA)
+
+            # Nebulae have magenta, purple, and green colors
+            color_choice = i % 3
+            if color_choice == 0:
+                color = (255, 0, 150, 18)   # Magenta
+            elif color_choice == 1:
+                color = (130, 0, 255, 15)  # Purple
+            else:
+                color = (0, 255, 180, 12)  # Glowing teal-green
+
+            pygame.draw.circle(neb_surf, color, (radius, radius), radius)
+            surface.blit(neb_surf, (cx + dx - radius, cy + dy - radius))
