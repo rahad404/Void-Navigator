@@ -23,21 +23,27 @@ class NASADataFetcher:
         self.offline_asteroids = self._generate_offline_asteroids()
         self.deep_space_catalog = self._generate_deep_space_catalog()
 
-    def fetch_asteroids(self):
+    def fetch_asteroids(self, start_date=None, end_date=None):
         """
         Fetches Near-Earth Objects (NEOs) from NASA's NeoWS API.
         Falls back to a robust offline generated dataset in case of network issues or rate limits.
         """
         today = datetime.datetime.now().strftime("%Y-%m-%d")
-        custom_date = datetime.date(2026, 4, 1)
-        url = f"https://api.nasa.gov/neo/rest/v1/feed?start_date={custom_date}&end_date={today}&api_key={api_key}"
+        if start_date is None:
+            start_date = today
+        if end_date is None:
+            end_date = today
+        url = f"https://api.nasa.gov/neo/rest/v1/feed?start_date={start_date}&end_date={end_date}&api_key={api_key}"
 
         try:
             # Short timeout to avoid freezing the Pygame app
             response = requests.get(url, timeout=5)
             if response.status_code == 200:
                 data = response.json()
-                asteroids_raw = data.get("near_earth_objects", {}).get(today, [])
+                # Aggregate asteroids from all dates in the response
+                asteroids_raw = []
+                for date_key in data.get("near_earth_objects", {}):
+                    asteroids_raw.extend(data["near_earth_objects"][date_key])
                 return self._parse_nasa_asteroids(asteroids_raw)
             else:
                 print(f"NASA API returned status code {response.status_code}. Using high-fidelity offline asteroid catalog.")

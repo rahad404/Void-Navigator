@@ -2,6 +2,7 @@ import pygame
 import sys
 import math
 import random
+import datetime
 from nasa_api import NASADataFetcher
 from navigator import AStarGrid, Node
 
@@ -357,6 +358,11 @@ class VoidNavigatorApp:
         self.asteroids_dataset = []
         self.deep_space_dataset = self.fetcher.deep_space_catalog
 
+        # Date input fields for NASA API query
+        self.start_date_str = datetime.datetime.now().strftime("%Y-%m-%d")
+        self.end_date_str = datetime.datetime.now().strftime("%Y-%m-%d")
+        self.editing_date = None  # None, "start", or "end"
+
         # Calculate layout coordinates at startup
         self.update_layout_dimensions()
 
@@ -391,7 +397,10 @@ class VoidNavigatorApp:
     # reload astroid
     # Fetches active asteroid assets from NASA fetcher and applies them to the grid
     def reload_asteroids(self):
-        self.asteroids_dataset = self.fetcher.fetch_asteroids()
+        self.asteroids_dataset = self.fetcher.fetch_asteroids(
+            start_date=self.start_date_str,
+            end_date=self.end_date_str
+        )
         self.sync_obstacles_to_grid()
 
     # Populates the A* grid obstacles from the active stage datasets.
@@ -442,12 +451,12 @@ class VoidNavigatorApp:
             Button((col2_x, r4_y, col_w, 30), f"HEURISTIC: {self.heuristic_mode.upper()}", "heuristic", COLOR_ACCENT_CYAN)
         ]
 
-        # Station selection arrows placed dynamically (Row 5 at y = 235, Row 6 at y = 265)
-        self.buttons.append(Button((sb_x + 15, 235, 30, 25), "<", "start_prev", COLOR_ACCENT_CYAN))
-        self.buttons.append(Button((sb_x + sb_w - 45, 235, 30, 25), ">", "start_next", COLOR_ACCENT_CYAN))
+        # Station selection arrows placed dynamically (shifted down for date fields)
+        self.buttons.append(Button((sb_x + 15, 290, 30, 25), "<", "start_prev", COLOR_ACCENT_CYAN))
+        self.buttons.append(Button((sb_x + sb_w - 45, 290, 30, 25), ">", "start_next", COLOR_ACCENT_CYAN))
 
-        self.buttons.append(Button((sb_x + 15, 265, 30, 25), "<", "target_prev", COLOR_ACCENT_CYAN))
-        self.buttons.append(Button((sb_x + sb_w - 45, 265, 30, 25), ">", "target_next", COLOR_ACCENT_CYAN))
+        self.buttons.append(Button((sb_x + 15, 320, 30, 25), "<", "target_prev", COLOR_ACCENT_CYAN))
+        self.buttons.append(Button((sb_x + sb_w - 45, 320, 30, 25), ">", "target_next", COLOR_ACCENT_CYAN))
 
     # Returns the name of the celestial body at a coordinate, or formatted coordinate string if custom
     def _get_body_name_at_pos(self, pos):
@@ -513,9 +522,41 @@ class VoidNavigatorApp:
                 # Recalculate path to center properly
                 self.calculate_path()
 
+            elif event.type == pygame.KEYDOWN:
+                if self.editing_date == "start":
+                    if event.key == pygame.K_BACKSPACE:
+                        self.start_date_str = self.start_date_str[:-1]
+                    elif event.key == pygame.K_RETURN or event.key == pygame.K_ESCAPE:
+                        self.editing_date = None
+                    elif event.unicode in "0123456789-":
+                        if len(self.start_date_str) < 10:
+                            self.start_date_str += event.unicode
+                elif self.editing_date == "end":
+                    if event.key == pygame.K_BACKSPACE:
+                        self.end_date_str = self.end_date_str[:-1]
+                    elif event.key == pygame.K_RETURN or event.key == pygame.K_ESCAPE:
+                        self.editing_date = None
+                    elif event.unicode in "0123456789-":
+                        if len(self.end_date_str) < 10:
+                            self.end_date_str += event.unicode
+
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 # Left Click
                 if event.button == 1:
+                    # Check date field clicks
+                    sb_x = self.sidebar_x
+                    sb_w = self.sidebar_width
+                    start_date_rect = pygame.Rect(sb_x + 110, 230, sb_w - 130, 22)
+                    end_date_rect = pygame.Rect(sb_x + 110, 258, sb_w - 130, 22)
+                    if start_date_rect.collidepoint(mouse_pos):
+                        self.editing_date = "start" if self.editing_date != "start" else None
+                        return
+                    elif end_date_rect.collidepoint(mouse_pos):
+                        self.editing_date = "end" if self.editing_date != "end" else None
+                        return
+                    else:
+                        self.editing_date = None
+
                     # Check button clicks
                     for btn in self.buttons:
                         if btn.is_hovered:
@@ -964,9 +1005,32 @@ class VoidNavigatorApp:
         for btn in self.buttons:
             btn.draw(self.screen, self.font_normal)
 
-        # 2. Draw Start/Target Selector Text Boxes between the cyclic arrows
+        # 2. Date Input Fields for NASA API query
+        date_label_color = COLOR_ACCENT_AMBER if self.editing_date == "start" else COLOR_TEXT_MUTED
+        date_label = self.font_hud.render("START DATE:", True, date_label_color)
+        self.screen.blit(date_label, (sb_x + 20, 233))
+        start_date_rect = pygame.Rect(sb_x + 110, 230, sb_w - 130, 22)
+        border_col = COLOR_ACCENT_CYAN if self.editing_date == "start" else COLOR_HUD_BORDER
+        pygame.draw.rect(self.screen, (10, 15, 25), start_date_rect)
+        pygame.draw.rect(self.screen, border_col, start_date_rect, 1)
+        cursor = "|" if self.editing_date == "start" and (pygame.time.get_ticks() // 500) % 2 == 0 else ""
+        date_txt = self.font_hud.render(self.start_date_str + cursor, True, COLOR_TEXT_BRIGHT)
+        self.screen.blit(date_txt, (sb_x + 114, 234))
+
+        date_label_color2 = COLOR_ACCENT_AMBER if self.editing_date == "end" else COLOR_TEXT_MUTED
+        date_label2 = self.font_hud.render("END DATE:", True, date_label_color2)
+        self.screen.blit(date_label2, (sb_x + 20, 261))
+        end_date_rect = pygame.Rect(sb_x + 110, 258, sb_w - 130, 22)
+        border_col2 = COLOR_ACCENT_CYAN if self.editing_date == "end" else COLOR_HUD_BORDER
+        pygame.draw.rect(self.screen, (10, 15, 25), end_date_rect)
+        pygame.draw.rect(self.screen, border_col2, end_date_rect, 1)
+        cursor2 = "|" if self.editing_date == "end" and (pygame.time.get_ticks() // 500) % 2 == 0 else ""
+        date_txt2 = self.font_hud.render(self.end_date_str + cursor2, True, COLOR_TEXT_BRIGHT)
+        self.screen.blit(date_txt2, (sb_x + 114, 262))
+
+        # 3. Draw Start/Target Selector Text Boxes between the cyclic arrows
         start_name = self._get_body_name_at_pos(self.start_node)
-        s_box = pygame.Rect(sb_x + 50, 235, sb_w - 100, 25)
+        s_box = pygame.Rect(sb_x + 50, 290, sb_w - 100, 25)
         pygame.draw.rect(self.screen, (10, 15, 25), s_box)
         pygame.draw.rect(self.screen, COLOR_HUD_BORDER, s_box, 1)
         start_txt_surf = self.font_hud.render(f"START: {start_name}", True, COLOR_ACCENT_GREEN)
@@ -974,19 +1038,19 @@ class VoidNavigatorApp:
         self.screen.blit(start_txt_surf, start_txt_rect)
 
         target_name = self._get_body_name_at_pos(self.end_node)
-        t_box = pygame.Rect(sb_x + 50, 265, sb_w - 100, 25)
+        t_box = pygame.Rect(sb_x + 50, 320, sb_w - 100, 25)
         pygame.draw.rect(self.screen, (10, 15, 25), t_box)
         pygame.draw.rect(self.screen, COLOR_HUD_BORDER, t_box, 1)
         target_txt_surf = self.font_hud.render(f"TARGET: {target_name}", True, COLOR_ACCENT_MAGENTA)
         target_txt_rect = target_txt_surf.get_rect(center=t_box.center)
         self.screen.blit(target_txt_surf, target_txt_rect)
 
-        # 3. Telemetry Information Box
-        pygame.draw.rect(self.screen, (10, 15, 25), (sb_x + 15, 300, sb_w - 30, 115))
-        pygame.draw.rect(self.screen, COLOR_HUD_BORDER, (sb_x + 15, 300, sb_w - 30, 115), 1)
+        # 4. Telemetry Information Box
+        pygame.draw.rect(self.screen, (10, 15, 25), (sb_x + 15, 355, sb_w - 30, 115))
+        pygame.draw.rect(self.screen, COLOR_HUD_BORDER, (sb_x + 15, 355, sb_w - 30, 115), 1)
 
         t_title = self.font_bold.render("CRITICAL FLIGHT TELEMETRY", True, COLOR_TEXT_BRIGHT)
-        self.screen.blit(t_title, (sb_x + 30, 308))
+        self.screen.blit(t_title, (sb_x + 30, 363))
 
         # Values calculations
         path_cost = round(len(self.active_path), 1) if self.active_path else 0.0
@@ -997,21 +1061,21 @@ class VoidNavigatorApp:
         node_str = f"NODES IN PATH: {path_cost}"
         cost_str = f"ACCUMULATED PATH COST: {g_cost}"
 
-        self.screen.blit(self.font_hud.render(coord_str, True, COLOR_TEXT_MUTED), (sb_x + 30, 328))
-        self.screen.blit(self.font_hud.render(fuel_str, True, COLOR_TEXT_MUTED), (sb_x + 30, 344))
-        self.screen.blit(self.font_hud.render(node_str, True, COLOR_TEXT_MUTED), (sb_x + 30, 360))
-        self.screen.blit(self.font_hud.render(cost_str, True, COLOR_TEXT_MUTED), (sb_x + 30, 376))
+        self.screen.blit(self.font_hud.render(coord_str, True, COLOR_TEXT_MUTED), (sb_x + 30, 383))
+        self.screen.blit(self.font_hud.render(fuel_str, True, COLOR_TEXT_MUTED), (sb_x + 30, 399))
+        self.screen.blit(self.font_hud.render(node_str, True, COLOR_TEXT_MUTED), (sb_x + 30, 415))
+        self.screen.blit(self.font_hud.render(cost_str, True, COLOR_TEXT_MUTED), (sb_x + 30, 431))
 
         # Fuel percentage bar graph
         bar_x = sb_x + sb_w - 170
-        pygame.draw.rect(self.screen, (20, 30, 45), (bar_x, 344, 140, 12))
+        pygame.draw.rect(self.screen, (20, 30, 45), (bar_x, 399, 140, 12))
         fuel_w = int(140 * (self.fuel_level / 100.0))
         fuel_col = COLOR_ACCENT_GREEN if self.fuel_level > 30 else COLOR_ACCENT_RED
         if fuel_w > 0:
-            pygame.draw.rect(self.screen, fuel_col, (bar_x, 344, fuel_w, 12))
+            pygame.draw.rect(self.screen, fuel_col, (bar_x, 399, fuel_w, 12))
 
-        # 4. Obstacle avoidance scanner (HUD Radar details)
-        scanner_y = 425
+        # 5. Obstacle avoidance scanner (HUD Radar details)
+        scanner_y = 480
         scanner_h = self.window_height - scanner_y - 20
         pygame.draw.rect(self.screen, (10, 15, 25), (sb_x + 15, scanner_y, sb_w - 30, scanner_h))
         pygame.draw.rect(self.screen, COLOR_HUD_BORDER, (sb_x + 15, scanner_y, sb_w - 30, scanner_h), 1)
