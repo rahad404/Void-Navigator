@@ -2,9 +2,6 @@ import heapq
 import math
 
 class Node:
-    """
-    Represents a single cell/node in the A* navigation grid.
-    """
     def __init__(self, x, y):
         self.x = x
         self.y = y
@@ -107,7 +104,7 @@ class AStarGrid:
         """
         dx = abs(node.x - goal.x)
         dy = abs(node.y - goal.y)
-        
+
         if mode == "octile":
             # Diagonal steps cost 1.414, orthogonal cost 1.0
             return (dx + dy) + (1.414 - 2.0) * min(dx, dy)
@@ -149,14 +146,14 @@ class AStarGrid:
         open_queue = []
         counter = 0
         heapq.heappush(open_queue, (start_node.f, counter, start_node))
-        
+
         # Set trackers for Pygame search visualizer
         open_set = {start_node.pos}
         closed_set = set()
 
         while open_queue:
             current_f, _, current = heapq.heappop(open_queue)
-            
+
             if current.pos in closed_set:
                 continue
 
@@ -188,7 +185,7 @@ class AStarGrid:
                     neighbor.g = tentative_g
                     neighbor.h = self._heuristic(neighbor, end_node, heuristic_mode)
                     neighbor.f = neighbor.g + neighbor.h
-                    
+
                     if neighbor.pos not in open_set:
                         counter += 1
                         heapq.heappush(open_queue, (neighbor.f, counter, neighbor))
@@ -204,15 +201,15 @@ if __name__ == "__main__":
     grid.set_obstacle(4, 3, True)
     grid.set_obstacle(4, 4, True)
     grid.set_obstacle(4, 5, True)
-    
+
     # Calculate hazards
     grid.apply_hazard_margins(margin_radius=1, cost_increment=3.0)
-    
+
     # Run pathfinding
     start = (1, 4)
     end = (8, 4)
     path, opens, closeds = grid.search(start, end)
-    
+
     print("Test path:", path)
     print("Closed nodes:", len(closeds))
     if path:

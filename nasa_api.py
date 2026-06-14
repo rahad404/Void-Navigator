@@ -14,20 +14,12 @@ if not api_key:
     raise ValueError("NASA_API_KEY environment variable not set")
 
 class NASADataFetcher:
-    """
-    Handles fetching near-Earth object data from the NASA NeoWS API
-    and provides a curated deep space catalog for stars, galaxies, and nebulae.
-    """
-    def __init__(self, grid_size=40):
+    def __init__(self, grid_size=50):
         self.grid_size = grid_size
         self.offline_asteroids = self._generate_offline_asteroids()
         self.deep_space_catalog = self._generate_deep_space_catalog()
 
     def fetch_asteroids(self, start_date=None, end_date=None):
-        """
-        Fetches Near-Earth Objects (NEOs) from NASA's NeoWS API.
-        Falls back to a robust offline generated dataset in case of network issues or rate limits.
-        """
         today = datetime.datetime.now().strftime("%Y-%m-%d")
         if start_date is None:
             start_date = today
@@ -53,9 +45,7 @@ class NASADataFetcher:
             return self.offline_asteroids
 
     def _parse_nasa_asteroids(self, asteroids_raw):
-        """
-        Parses raw NASA API data and assigns coordinates on the grid dynamically.
-        """
+        # Parses raw NASA API data and assigns coordinates on the grid dynamically.
         parsed = []
         for index, ast in enumerate(asteroids_raw):
             ast_id = ast.get("id", str(index))

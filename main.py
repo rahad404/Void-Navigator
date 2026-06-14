@@ -74,8 +74,8 @@ class Button:
         return self.is_hovered
 
 # cosmic object class
+# Handles rendering of various celestial bodies procedurally with glow layers
 class CosmicObjectRenderer:
-    """Handles rendering of various celestial bodies procedurally with glow layers."""
     @staticmethod
     def draw_planet(surface, cx, cy, radius, primary_color, atmosphere_color, name=""):
         # 1. Glow layer
